@@ -1,6 +1,6 @@
 ---
 name: ctf-web
-description: Web exploitation techniques for CTF challenges. Use when solving web security challenges involving XSS, SQLi, SSTI, SSRF, CSRF, XXE, file upload bypasses, JWT attacks, prototype pollution, path traversal, command injection, request smuggling, DOM clobbering, Web3/blockchain, or authentication bypass.
+description: Provides web exploitation techniques for CTF challenges. Use when solving web security challenges involving XSS, SQLi, SSTI, SSRF, CSRF, XXE, file upload bypasses, JWT attacks, prototype pollution, path traversal, command injection, request smuggling, DOM clobbering, Web3/blockchain, or authentication bypass.
 license: MIT
 compatibility: Requires filesystem-based agent (Claude Code or similar) with bash, Python 3, and internet access for tool installation.
 allowed-tools: Bash Read Write Edit Glob Grep Task WebFetch WebSearch
@@ -246,6 +246,10 @@ Linear XOR-based signing with secret blocks → recover from known pairs → for
 ## CSS/JS Paywall Bypass
 
 Content behind CSS overlay (`position: fixed; z-index: 99999`) is still in the raw HTML. `curl` or view-source bypasses it instantly. See [client-side.md](client-side.md#cssjs-paywall-bypass).
+
+## Admin Bot javascript: URL Scheme Bypass
+
+`new URL()` validates syntax only, not protocol — `javascript:` URLs pass and execute in Puppeteer's authenticated context. CSP/SRI on the target page are irrelevant since JS runs in navigation context. See [client-side.md](client-side.md#admin-bot-javascript-url-scheme-bypass-dicectf-2026).
 
 ## Common Flag Locations
 
