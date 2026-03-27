@@ -47,6 +47,12 @@ brew install ffmpeg qrencode
 
 ---
 
+## When to Pivot
+
+- If the puzzle is actually centered on cryptography or number theory, switch to `/ctf-crypto`.
+- If the challenge is a real binary exploit instead of a jail, toy VM, or encoding problem, switch to `/ctf-pwn` or `/ctf-reverse`.
+- If the input is mostly files, images, audio, or packet captures that need recovery work first, switch to `/ctf-forensics`.
+
 ## General Tips
 
 - Read all provided files carefully

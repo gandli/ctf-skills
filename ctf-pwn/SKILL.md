@@ -57,6 +57,12 @@ gem install one_gadget seccomp-tools
 
 ---
 
+## When to Pivot
+
+- If you do not yet understand what the binary does, switch to `/ctf-reverse` before trying to exploit it.
+- If the service is really a restricted shell, encoding puzzle, or sandbox language challenge, switch to `/ctf-misc`.
+- If the exploit path depends on a web endpoint, session bug, or upload primitive more than memory corruption, switch to `/ctf-web`.
+
 ## Source Code Red Flags
 
 - Threading/`pthread` -> race conditions

@@ -53,6 +53,12 @@ gem install zsteg
 
 ---
 
+## When to Pivot
+
+- If you recover an encrypted blob and the hard part becomes RSA, AES, or lattice work, switch to `/ctf-crypto`.
+- If the evidence really points to malware staging, beacon config extraction, or packed samples, switch to `/ctf-malware`.
+- If the artifact is a web app backup or API dump and the remaining problem is application logic, switch to `/ctf-web`.
+
 ## Quick Start Commands
 
 ```bash

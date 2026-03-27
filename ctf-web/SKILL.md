@@ -55,6 +55,12 @@ go install github.com/ffuf/ffuf/v2@latest
 
 ---
 
+## When to Pivot
+
+- If the target is a native binary, custom VM, or firmware image, switch to `/ctf-reverse` first.
+- If the HTTP bug only gives you code execution and the hard part becomes memory corruption or seccomp escape, switch to `/ctf-pwn`.
+- If the "web" challenge really turns on JWT math, custom MACs, or crypto primitives, switch to `/ctf-crypto`.
+
 ## Reconnaissance
 
 - View source for HTML comments, check JS/CSS files for internal APIs

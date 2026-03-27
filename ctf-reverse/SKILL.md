@@ -50,6 +50,12 @@ brew install gdb radare2 binutils apktool upx ghidra
 
 ---
 
+## When to Pivot
+
+- If you already understand the binary and now need heap, ROP, or kernel exploitation, switch to `/ctf-pwn`.
+- If the challenge is really about recovering deleted files, PCAP data, or disk artifacts, switch to `/ctf-forensics`.
+- If the target is a web app and you are only reversing a small client-side helper script, switch to `/ctf-web`.
+
 ## Problem-Solving Workflow
 
 1. **Start with strings extraction** - many easy challenges have plaintext flags

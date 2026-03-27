@@ -37,6 +37,12 @@ brew install whois bind nmap exiftool imagemagick curl
 
 ---
 
+## When to Pivot
+
+- If you already have the files or packets locally and now need extraction or carving, switch to `/ctf-forensics`.
+- If the task becomes active exploitation of a live HTTP service, switch to `/ctf-web`.
+- If you uncover malware samples, beacons, or suspicious binaries during attribution, switch to `/ctf-malware`.
+
 ## String Identification
 
 - 40 hex chars -> SHA-1 (Tor fingerprint)
