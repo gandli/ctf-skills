@@ -17,16 +17,18 @@ CRITICAL_PATTERNS = [
     (r'mkfs\.\w+\s+/dev/', "Destructive command: mkfs on device"),
     (r'dd\s+.*of=/dev/[sh]d', "Destructive command: dd to disk device"),
     (r':(){ :\|:& };:', "Fork bomb"),
+]
+
+SECRET_PATTERNS = [
     (r'\b(AKIA[0-9A-Z]{16})\b', "Hardcoded AWS access key"),
     (r'-----BEGIN (RSA |EC |DSA )?PRIVATE KEY-----', "Embedded private key"),
     (r'\b(ghp_[A-Za-z0-9_]{36,})\b', "Hardcoded GitHub personal access token"),
     (r'\b(sk-[A-Za-z0-9]{20,})\b', "Hardcoded API secret key (sk-...)"),
-    (r'password\s*=\s*["\'][^"\']{8,}["\']', "Hardcoded password in assignment"),
 ]
 
 HIGH_PATTERNS = [
-    (r'eval\s*\(\s*["\']', "Direct eval() with string literal"),
-    (r'exec\s*\(\s*["\']', "Direct exec() with string literal"),
+    (r'(?<![\w.])eval\s*\(\s*["\']', "Direct eval() with string literal"),
+    (r'(?<![\w.])exec\s*\(\s*["\']', "Direct exec() with string literal"),
     (r'subprocess\.call\s*\(\s*["\'].*shell\s*=\s*True', "subprocess with shell=True and string"),
     (r'os\.system\s*\(\s*f["\']', "os.system() with f-string (injection risk)"),
     (r'<script[^>]*>.*document\.(cookie|location)', "XSS payload accessing sensitive DOM"),
@@ -52,10 +54,12 @@ def parse_frontmatter(content: str) -> dict:
     fm = {}
     if not content.startswith('---'):
         return fm
-    end = content.find('---', 3)
-    if end == -1:
+
+    match = re.match(r"^---\s*\n(.*?)\n---\s*(?:\n|$)", content, re.DOTALL)
+    if not match:
         return fm
-    block = content[3:end]
+
+    block = match.group(1)
     for line in block.strip().splitlines():
         if ':' in line:
             key, _, val = line.partition(':')
@@ -87,8 +91,21 @@ def scan_file(filepath: Path) -> list:
             in_code_block = not in_code_block
             continue
 
-        # Critical patterns — check everywhere
-        for pattern, message in CRITICAL_PATTERNS:
+        # Destructive commands should appear in runnable examples before we flag them.
+        if in_code_block:
+            for pattern, message in CRITICAL_PATTERNS:
+                if re.search(pattern, line):
+                    findings.append({
+                        'severity': 'CRITICAL',
+                        'file': str(filepath),
+                        'line': i,
+                        'rule': pattern[:40],
+                        'message': message,
+                        'context': line.strip()[:120],
+                    })
+
+        # Real secret material should be flagged wherever it appears.
+        for pattern, message in SECRET_PATTERNS:
             if re.search(pattern, line):
                 findings.append({
                     'severity': 'CRITICAL',
@@ -129,7 +146,31 @@ def scan_skill(skill_dir: Path) -> dict:
             'message': 'SKILL.md not found in skill directory',
         })
     else:
-        content = skill_md.read_text(encoding='utf-8', errors='replace')
+        try:
+            content = skill_md.read_text(encoding='utf-8', errors='replace')
+        except Exception as e:
+            findings.append({
+                'severity': 'HIGH',
+                'file': str(skill_md),
+                'line': 0,
+                'rule': 'unreadable_skill_md',
+                'message': f'Could not read SKILL.md: {e}',
+            })
+            content = None
+
+        if content is None:
+            return {
+                'skill': str(skill_dir),
+                'verdict': 'WARN',
+                'summary': {
+                    'critical': 0,
+                    'high': 1,
+                    'info': 0,
+                    'total': 1,
+                },
+                'findings': findings,
+            }
+
         fm = parse_frontmatter(content)
         for key, message in FRONTMATTER_CHECKS.items():
             if key not in fm:
