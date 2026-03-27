@@ -3,7 +3,6 @@
 
 import argparse
 import json
-import os
 import re
 import sys
 from pathlib import Path
@@ -29,7 +28,6 @@ SECRET_PATTERNS = [
 HIGH_PATTERNS = [
     (r'(?<![\w.])eval\s*\(\s*["\']', "Direct eval() with string literal"),
     (r'(?<![\w.])exec\s*\(\s*["\']', "Direct exec() with string literal"),
-    (r'subprocess\.call\s*\(\s*["\'].*shell\s*=\s*True', "subprocess with shell=True and string"),
     (r'os\.system\s*\(\s*f["\']', "os.system() with f-string (injection risk)"),
     (r'<script[^>]*>.*document\.(cookie|location)', "XSS payload accessing sensitive DOM"),
     (r'chmod\s+[47]77\s+/', "World-writable permission on system path"),
@@ -67,6 +65,15 @@ def parse_frontmatter(content: str) -> dict:
     return fm
 
 
+def has_shell_true_subprocess_call(line: str) -> bool:
+    """Detect subprocess.call() with a string argument and shell=True on the same line."""
+    if 'subprocess.call' not in line or 'shell=True' not in line:
+        return False
+
+    match = re.search(r'subprocess\.call\s*\(\s*([\'"])', line)
+    return match is not None
+
+
 def scan_file(filepath: Path) -> list:
     """Scan a single file and return findings."""
     findings = []
@@ -87,12 +94,17 @@ def scan_file(filepath: Path) -> list:
     # Check code blocks only (between ``` markers) for dangerous patterns
     in_code_block = False
     for i, line in enumerate(lines, 1):
-        if line.strip().startswith('```'):
+        stripped = line.strip()
+        is_indented_code = line.startswith('    ') or line.startswith('\t')
+
+        if stripped.startswith('```'):
             in_code_block = not in_code_block
             continue
 
+        in_executable_example = in_code_block or is_indented_code
+
         # Destructive commands should appear in runnable examples before we flag them.
-        if in_code_block:
+        if in_executable_example:
             for pattern, message in CRITICAL_PATTERNS:
                 if re.search(pattern, line):
                     findings.append({
@@ -116,8 +128,18 @@ def scan_file(filepath: Path) -> list:
                     'context': line.strip()[:120],
                 })
 
-        # High patterns — only in code blocks (technique docs legitimately discuss these)
-        if in_code_block:
+        # High patterns — only in runnable code examples
+        if in_executable_example:
+            if has_shell_true_subprocess_call(line):
+                findings.append({
+                    'severity': 'HIGH',
+                    'file': str(filepath),
+                    'line': i,
+                    'rule': 'subprocess.call+shell=True',
+                    'message': 'subprocess with shell=True and string',
+                    'context': line.strip()[:120],
+                })
+
             for pattern, message in HIGH_PATTERNS:
                 if re.search(pattern, line):
                     findings.append({
@@ -128,6 +150,17 @@ def scan_file(filepath: Path) -> list:
                         'message': message,
                         'context': line.strip()[:120],
                     })
+
+        for pattern, message in INFO_PATTERNS:
+            if re.search(pattern, line):
+                findings.append({
+                    'severity': 'INFO',
+                    'file': str(filepath),
+                    'line': i,
+                    'rule': pattern[:40],
+                    'message': message,
+                    'context': line.strip()[:120],
+                })
 
     return findings
 
@@ -216,7 +249,7 @@ def main():
     parser = argparse.ArgumentParser(description='Skill Security Auditor')
     parser.add_argument('skill_dir', help='Path to skill directory to audit')
     parser.add_argument('--strict', action='store_true',
-                        help='Exit non-zero on CRITICAL or HIGH findings')
+                        help='Exit non-zero on CRITICAL findings')
     parser.add_argument('--json', action='store_true', dest='json_output',
                         help='Output results as JSON')
     args = parser.parse_args()

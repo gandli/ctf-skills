@@ -107,6 +107,85 @@ class SkillSecurityAuditorTests(unittest.TestCase):
             any(finding["severity"] == "HIGH" for finding in result["findings"])
         )
 
+    def test_subprocess_call_with_shell_true_is_flagged(self):
+        skill_dir = self._make_skill(
+            textwrap.dedent(
+                """\
+                ---
+                name: demo-skill
+                description: Demo
+                license: MIT
+                allowed-tools: []
+                ---
+                """
+            ),
+            {
+                "example.md": textwrap.dedent(
+                    """\
+                    ```python
+                    subprocess.call("echo hi", shell=True)
+                    ```
+                    """
+                )
+            },
+        )
+
+        result = scan_skill(skill_dir)
+
+        self.assertEqual(result["verdict"], "WARN")
+        self.assertTrue(
+            any("shell=True" in finding["message"] for finding in result["findings"])
+        )
+
+    def test_info_annotations_are_reported(self):
+        skill_dir = self._make_skill(
+            textwrap.dedent(
+                """\
+                ---
+                name: demo-skill
+                description: Demo
+                license: MIT
+                allowed-tools: []
+                ---
+                """
+            ),
+            {
+                "notes.md": "TODO: tighten this example later\n",
+            },
+        )
+
+        result = scan_skill(skill_dir)
+
+        self.assertEqual(result["verdict"], "PASS")
+        self.assertTrue(
+            any(finding["severity"] == "INFO" and "Code annotation found" in finding["message"]
+                for finding in result["findings"])
+        )
+
+    def test_indented_shell_example_is_still_treated_as_code(self):
+        skill_dir = self._make_skill(
+            textwrap.dedent(
+                """\
+                ---
+                name: demo-skill
+                description: Demo
+                license: MIT
+                allowed-tools: []
+                ---
+                """
+            ),
+            {
+                "shell.md": "    rm -rf /\n",
+            },
+        )
+
+        result = scan_skill(skill_dir)
+
+        self.assertEqual(result["verdict"], "FAIL")
+        self.assertTrue(
+            any("rm -rf /" in finding["message"] for finding in result["findings"])
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
