@@ -142,6 +142,14 @@ If your first approach doesn't work:
 - Forensics + Signal Processing: power traces / side-channel analysis requiring statistical analysis of measurement data
 - Forensics + Network + Encoding: timing-based encoding in PCAP (inter-packet intervals encode binary data)
 
+### Step 5: Generate Writeup
+
+After solving the challenge, invoke `/ctf-writeup` to generate a standardized writeup. Choose a format based on your needs:
+
+- `submission` — concise, for competition organizers
+- `blog` — detailed and educational, for publishing
+- `brief` — one-liner + key commands, for team archives
+
 ## Flag Formats
 
 Flags vary by CTF. Common formats:
