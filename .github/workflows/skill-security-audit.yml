@@ -7,6 +7,7 @@ name: Skill Security Audit
   push:
     branches:
       - main
+  workflow_dispatch:
 
 concurrency:
   group: security-audit-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
@@ -14,7 +15,7 @@ concurrency:
 
 jobs:
   detect-skills:
-    name: Detect all skills
+    name: Detect skills to audit
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -24,11 +25,42 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Find all skill directories
+      - name: Find skills to audit
         id: list
         run: |
-          SKILL_FILES=$(find . -name SKILL.md -not -path './.git/*' | sort)
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SKILL_FILES=$(find . -name SKILL.md -not -path './.git/*' | sort)
+            LABEL="All skills"
+          else
+            if [ "${{ github.event_name }}" = "pull_request" ]; then
+              CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD 2>/dev/null || echo "")
+            else
+              BEFORE='${{ github.event.before }}'
+              if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+                CHANGED=$(git diff-tree --no-commit-id --name-only -r HEAD 2>/dev/null || echo "")
+              else
+                CHANGED=$(git diff --name-only "$BEFORE"...HEAD 2>/dev/null || echo "")
+              fi
+            fi
+
+            SKILL_FILES=""
+            while IFS= read -r file; do
+              dir=$(echo "$file" | cut -d'/' -f1)
+              case "$dir" in
+                ""|.github|.claude|.codex|.gemini|scripts|docs) continue ;;
+              esac
+              if [ -f "$dir/SKILL.md" ]; then
+                SKILL_FILES+="./$dir/SKILL.md"$'\n'
+              fi
+            done <<< "$CHANGED"
+
+            LABEL="Changed skills"
+          fi
+
+          SKILL_FILES=$(printf '%s' "$SKILL_FILES" | sed '/^$/d' | sort -u)
 
           if [ -z "$SKILL_FILES" ]; then
             echo "skills=[]" >> "$GITHUB_OUTPUT"
@@ -52,7 +84,7 @@ jobs:
 
           echo "skills=$JSON" >> "$GITHUB_OUTPUT"
           echo "has_skills=true" >> "$GITHUB_OUTPUT"
-          echo "All skills: $JSON"
+          echo "$LABEL: $JSON"
 
   audit:
     name: Security audit
@@ -71,7 +103,7 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Run security auditor on all skills
+      - name: Run security auditor
         id: audit
         run: |
           AUDITOR="scripts/skill_security_auditor.py"
