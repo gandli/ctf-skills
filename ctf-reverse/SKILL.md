@@ -12,6 +12,26 @@ metadata:
 
 Quick reference for RE challenges. For detailed techniques, see supporting files.
 
+## Prerequisites
+
+**Python packages (all platforms):**
+```bash
+pip install frida-tools angr qiling uncompyle6 capstone lief z3-solver
+```
+
+**Linux (apt):**
+```bash
+apt install gdb radare2 binutils strace ltrace apktool upx
+```
+
+**macOS (Homebrew):**
+```bash
+brew install gdb radare2 binutils apktool upx ghidra
+```
+
+**Manual install:**
+- pwndbg — Linux: [GitHub](https://github.com/pwndbg/pwndbg), macOS: `brew install pwndbg/tap/pwndbg-gdb`
+
 ## Additional Resources
 
 - [tools.md](tools.md) - Static analysis tools (GDB, Ghidra, radare2, IDA, Binary Ninja, dogbolt.org, RISC-V with Capstone, Unicorn emulation, Python bytecode, WASM, Android APK, .NET, packed binaries)

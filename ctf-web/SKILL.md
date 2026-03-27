@@ -12,6 +12,31 @@ metadata:
 
 Quick reference for web CTF challenges. Each technique has a one-liner here; see supporting files for full details with payloads and code.
 
+## Prerequisites
+
+**Python packages (all platforms):**
+```bash
+pip install sqlmap flask-unsign requests
+```
+
+**Linux (apt):**
+```bash
+apt install hashcat jq curl
+```
+
+**macOS (Homebrew):**
+```bash
+brew install hashcat jq curl
+```
+
+**Go tools (all platforms, requires Go):**
+```bash
+go install github.com/ffuf/ffuf/v2@latest
+```
+
+**Manual install:**
+- ysoserial — [GitHub](https://github.com/frohoff/ysoserial), requires Java (Java deserialization payloads)
+
 ## Additional Resources
 
 - [server-side.md](server-side.md) - Core server-side injection attacks: SQLi (EXIF metadata injection, MySQL column truncation, backslash/hex bypass, second-order, LIKE brute-force, processList trick, XML entity WAF bypass, Shift-JIS encoding bypass), SSTI (Jinja2, Go, EJS, ERB Sequel bypass, Mako, Twig, `__dict__.update()` quote bypass), SSRF (Host header, DNS rebinding, curl redirect), XXE, XML injection via X-Forwarded-For header, command injection (newline, blocklist bypass, sendmail, multi-barcode, git CLI newline injection), PHP type juggling, PHP file inclusion / php://filter
@@ -291,7 +316,6 @@ sqlmap -u "http://target/?id=1" --dbs       # SQLi
 ffuf -u http://target/FUZZ -w wordlist.txt   # Directory fuzzing
 flask-unsign --decode --cookie "eyJ..."      # JWT decode
 hashcat -m 16500 jwt.txt wordlist.txt        # JWT crack
-dalfox url http://target/?q=test             # XSS
 ```
 
 ## Flask/Werkzeug Debug Mode

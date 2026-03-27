@@ -12,6 +12,29 @@ metadata:
 
 Quick reference for crypto CTF challenges. Each technique has a one-liner here; see supporting files for full details with code.
 
+## Prerequisites
+
+**Python packages (all platforms):**
+```bash
+pip install pycryptodome z3-solver sympy gmpy2 hashpumpy fpylll py_ecc
+```
+
+**Linux (apt):**
+```bash
+apt install hashcat sagemath
+```
+
+**macOS (Homebrew):**
+```bash
+brew install hashcat
+```
+
+**Manual install:**
+- SageMath — Linux: `apt install sagemath`, macOS: `brew install --cask sage`
+- RsaCtfTool — `git clone https://github.com/RsaCtfTool/RsaCtfTool` (automated RSA attacks)
+
+> **Note:** `gmpy2` requires libgmp — Linux: `apt install libgmp-dev`, macOS: `brew install gmp`.
+
 ## Additional Resources
 
 - [classic-ciphers.md](classic-ciphers.md) - Classic ciphers: Vigenere (+ Kasiski examination), Atbash, substitution wheels, XOR variants (+ multi-byte frequency analysis), deterministic OTP, cascade XOR, book cipher, OTP key reuse / many-time pad, variable-length homophonic substitution, grid permutation cipher keyspace reduction, image-based Caesar shift ciphers, XOR key recovery via file format headers
