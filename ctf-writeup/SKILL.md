@@ -9,7 +9,7 @@ metadata:
   argument-hint: "[challenge-name] [--format blog|submission|brief]"
 ---
 
-# CTF Writeup Generator
+# CTF Write-up Generator
 
 Generate a standardized, high-quality writeup for a solved CTF challenge.
 
@@ -40,7 +40,7 @@ grep -rniE '(flag|ctf|eno|htb|pico)\{' . 2>/dev/null
 
 Default to `blog` if not specified.
 
-### Step 3: Generate Writeup
+### Step 3: Generate Write-up
 
 Write the writeup file as `writeup.md` (or `writeup-<challenge-name>.md`) using the template below matching the chosen format.
 
@@ -93,7 +93,7 @@ flag{example_flag_here}
 
 ```markdown
 ---
-title: "<Challenge Name> — <CTF Event> Writeup"
+title: "<Challenge Name> — <CTF Event> Write-up"
 ctf: "<CTF Event Name>"
 date: YYYY-MM-DD
 category: web|pwn|crypto|reverse|forensics|osint|malware|misc

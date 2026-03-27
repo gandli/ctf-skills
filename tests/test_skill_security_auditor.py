@@ -107,6 +107,166 @@ class SkillSecurityAuditorTests(unittest.TestCase):
             any(finding["severity"] == "HIGH" for finding in result["findings"])
         )
 
+    def test_subprocess_call_with_shell_true_is_flagged(self):
+        skill_dir = self._make_skill(
+            textwrap.dedent(
+                """\
+                ---
+                name: demo-skill
+                description: Demo
+                license: MIT
+                allowed-tools: []
+                ---
+                """
+            ),
+            {
+                "example.md": textwrap.dedent(
+                    """\
+                    ```python
+                    subprocess.call("echo hi", shell=True)
+                    ```
+                    """
+                )
+            },
+        )
+
+        result = scan_skill(skill_dir)
+
+        self.assertEqual(result["verdict"], "WARN")
+        self.assertTrue(
+            any("shell=True" in finding["message"] for finding in result["findings"])
+        )
+
+    def test_missing_license_produces_info_finding(self):
+        skill_dir = self._make_skill(
+            textwrap.dedent(
+                """\
+                ---
+                name: demo-skill
+                description: Demo
+                allowed-tools: []
+                ---
+                """
+            )
+        )
+
+        result = scan_skill(skill_dir)
+
+        self.assertEqual(result["verdict"], "PASS")
+        self.assertTrue(
+            any(
+                finding["severity"] == "INFO"
+                and "Missing license" in finding["message"]
+                for finding in result["findings"]
+            )
+        )
+
+    def test_info_annotations_are_reported(self):
+        skill_dir = self._make_skill(
+            textwrap.dedent(
+                """\
+                ---
+                name: demo-skill
+                description: Demo
+                license: MIT
+                allowed-tools: []
+                ---
+                """
+            ),
+            {
+                "notes.md": "TODO: tighten this example later\n",
+            },
+        )
+
+        result = scan_skill(skill_dir)
+
+        self.assertEqual(result["verdict"], "PASS")
+        self.assertTrue(
+            any(finding["severity"] == "INFO" and "Code annotation found" in finding["message"]
+                for finding in result["findings"])
+        )
+
+    def test_indented_shell_example_is_still_treated_as_code(self):
+        skill_dir = self._make_skill(
+            textwrap.dedent(
+                """\
+                ---
+                name: demo-skill
+                description: Demo
+                license: MIT
+                allowed-tools: []
+                ---
+                """
+            ),
+            {
+                "shell.md": "    rm -rf /\n",
+            },
+        )
+
+        result = scan_skill(skill_dir)
+
+        self.assertEqual(result["verdict"], "FAIL")
+        self.assertTrue(
+            any("rm -rf /" in finding["message"] for finding in result["findings"])
+        )
+
+    def test_invalid_utf8_markdown_produces_high_finding(self):
+        temp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(temp_dir.cleanup)
+        skill_dir = Path(temp_dir.name) / "demo-skill"
+        skill_dir.mkdir()
+        (skill_dir / "SKILL.md").write_text(
+            textwrap.dedent(
+                """\
+                ---
+                name: demo-skill
+                description: Demo
+                license: MIT
+                allowed-tools: []
+                ---
+                """
+            ),
+            encoding="utf-8",
+        )
+        (skill_dir / "broken.md").write_bytes(b"\xff\xfe\x00")
+
+        result = scan_skill(skill_dir)
+
+        self.assertEqual(result["verdict"], "WARN")
+        self.assertTrue(
+            any(
+                finding["severity"] == "HIGH"
+                and finding["rule"] == "unreadable_file"
+                for finding in result["findings"]
+            )
+        )
+
+    def test_invalid_utf8_skill_md_does_not_stop_other_markdown_scans(self):
+        temp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(temp_dir.cleanup)
+        skill_dir = Path(temp_dir.name) / "demo-skill"
+        skill_dir.mkdir()
+        (skill_dir / "SKILL.md").write_bytes(b"\xff\xfe\x00")
+        (skill_dir / "notes.md").write_text("TODO: keep scanning\n", encoding="utf-8")
+
+        result = scan_skill(skill_dir)
+
+        self.assertEqual(result["verdict"], "WARN")
+        self.assertTrue(
+            any(
+                finding["severity"] == "HIGH"
+                and finding["rule"] == "unreadable_skill_md"
+                for finding in result["findings"]
+            )
+        )
+        self.assertTrue(
+            any(
+                finding["severity"] == "INFO"
+                and "Code annotation found" in finding["message"]
+                for finding in result["findings"]
+            )
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

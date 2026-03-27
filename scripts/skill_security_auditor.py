@@ -3,7 +3,6 @@
 
 import argparse
 import json
-import os
 import re
 import sys
 from pathlib import Path
@@ -15,8 +14,8 @@ CRITICAL_PATTERNS = [
     (r'curl\s+[^\|]*\|\s*(ba)?sh', "Pipe-to-shell: curl | sh"),
     (r'wget\s+[^\|]*\|\s*(ba)?sh', "Pipe-to-shell: wget | sh"),
     (r'mkfs\.\w+\s+/dev/', "Destructive command: mkfs on device"),
-    (r'dd\s+.*of=/dev/[sh]d', "Destructive command: dd to disk device"),
-    (r':(){ :\|:& };:', "Fork bomb"),
+    (r'dd\s+.*of=/dev/(sd|hd|vd|nvme)', "Destructive command: dd to disk device"),
+    (r':\(\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;\s*:', "Fork bomb"),
 ]
 
 SECRET_PATTERNS = [
@@ -29,7 +28,6 @@ SECRET_PATTERNS = [
 HIGH_PATTERNS = [
     (r'(?<![\w.])eval\s*\(\s*["\']', "Direct eval() with string literal"),
     (r'(?<![\w.])exec\s*\(\s*["\']', "Direct exec() with string literal"),
-    (r'subprocess\.call\s*\(\s*["\'].*shell\s*=\s*True', "subprocess with shell=True and string"),
     (r'os\.system\s*\(\s*f["\']', "os.system() with f-string (injection risk)"),
     (r'<script[^>]*>.*document\.(cookie|location)', "XSS payload accessing sensitive DOM"),
     (r'chmod\s+[47]77\s+/', "World-writable permission on system path"),
@@ -67,19 +65,43 @@ def parse_frontmatter(content: str) -> dict:
     return fm
 
 
-def scan_file(filepath: Path) -> list:
-    """Scan a single file and return findings."""
-    findings = []
+def has_shell_true_subprocess_call(line: str) -> bool:
+    """Detect subprocess.call() with a string argument and shell=True on the same line."""
+    if 'subprocess.call' not in line or 'shell=True' not in line:
+        return False
+
+    match = re.search(r'subprocess\.call\s*\(\s*([\'"])', line)
+    return match is not None
+
+
+def read_markdown_file(filepath: Path) -> tuple[str | None, dict | None]:
+    """Read a markdown file with strict UTF-8 handling."""
     try:
-        content = filepath.read_text(encoding='utf-8', errors='replace')
-    except Exception as e:
-        findings.append({
+        return filepath.read_text(encoding='utf-8'), None
+    except UnicodeDecodeError as e:
+        return None, {
+            'severity': 'HIGH',
+            'file': str(filepath),
+            'line': 0,
+            'rule': 'unreadable_file',
+            'message': f'Could not decode file as UTF-8: {e}',
+        }
+    except OSError as e:
+        return None, {
             'severity': 'HIGH',
             'file': str(filepath),
             'line': 0,
             'rule': 'unreadable_file',
             'message': f'Could not read file: {e}',
-        })
+        }
+
+
+def scan_file(filepath: Path) -> list:
+    """Scan a single file and return findings."""
+    findings = []
+    content, read_error = read_markdown_file(filepath)
+    if read_error is not None:
+        findings.append(read_error)
         return findings
 
     lines = content.splitlines()
@@ -87,12 +109,17 @@ def scan_file(filepath: Path) -> list:
     # Check code blocks only (between ``` markers) for dangerous patterns
     in_code_block = False
     for i, line in enumerate(lines, 1):
-        if line.strip().startswith('```'):
+        stripped = line.strip()
+        is_indented_code = line.startswith('    ') or line.startswith('\t')
+
+        if stripped.startswith('```'):
             in_code_block = not in_code_block
             continue
 
+        in_executable_example = in_code_block or is_indented_code
+
         # Destructive commands should appear in runnable examples before we flag them.
-        if in_code_block:
+        if in_executable_example:
             for pattern, message in CRITICAL_PATTERNS:
                 if re.search(pattern, line):
                     findings.append({
@@ -116,8 +143,18 @@ def scan_file(filepath: Path) -> list:
                     'context': line.strip()[:120],
                 })
 
-        # High patterns — only in code blocks (technique docs legitimately discuss these)
-        if in_code_block:
+        # High patterns — only in runnable code examples
+        if in_executable_example:
+            if has_shell_true_subprocess_call(line):
+                findings.append({
+                    'severity': 'HIGH',
+                    'file': str(filepath),
+                    'line': i,
+                    'rule': 'subprocess.call+shell=True',
+                    'message': 'subprocess with shell=True and string',
+                    'context': line.strip()[:120],
+                })
+
             for pattern, message in HIGH_PATTERNS:
                 if re.search(pattern, line):
                     findings.append({
@@ -128,6 +165,17 @@ def scan_file(filepath: Path) -> list:
                         'message': message,
                         'context': line.strip()[:120],
                     })
+
+        for pattern, message in INFO_PATTERNS:
+            if re.search(pattern, line):
+                findings.append({
+                    'severity': 'INFO',
+                    'file': str(filepath),
+                    'line': i,
+                    'rule': pattern[:40],
+                    'message': message,
+                    'context': line.strip()[:120],
+                })
 
     return findings
 
@@ -147,8 +195,17 @@ def scan_skill(skill_dir: Path) -> dict:
         })
     else:
         try:
-            content = skill_md.read_text(encoding='utf-8', errors='replace')
-        except Exception as e:
+            content = skill_md.read_text(encoding='utf-8')
+        except UnicodeDecodeError as e:
+            findings.append({
+                'severity': 'HIGH',
+                'file': str(skill_md),
+                'line': 0,
+                'rule': 'unreadable_skill_md',
+                'message': f'Could not decode SKILL.md as UTF-8: {e}',
+            })
+            content = None
+        except OSError as e:
             findings.append({
                 'severity': 'HIGH',
                 'file': str(skill_md),
@@ -158,29 +215,17 @@ def scan_skill(skill_dir: Path) -> dict:
             })
             content = None
 
-        if content is None:
-            return {
-                'skill': str(skill_dir),
-                'verdict': 'WARN',
-                'summary': {
-                    'critical': 0,
-                    'high': 1,
-                    'info': 0,
-                    'total': 1,
-                },
-                'findings': findings,
-            }
-
-        fm = parse_frontmatter(content)
-        for key, message in FRONTMATTER_CHECKS.items():
-            if key not in fm:
-                findings.append({
-                    'severity': 'INFO',
-                    'file': str(skill_md),
-                    'line': 0,
-                    'rule': f'missing_{key}',
-                    'message': message,
-                })
+        if content is not None:
+            fm = parse_frontmatter(content)
+            for key, message in FRONTMATTER_CHECKS.items():
+                if key not in fm:
+                    findings.append({
+                        'severity': 'INFO',
+                        'file': str(skill_md),
+                        'line': 0,
+                        'rule': f'missing_{key}',
+                        'message': message,
+                    })
 
     # Scan all markdown files
     md_files = sorted(skill_dir.rglob('*.md'))
@@ -216,7 +261,7 @@ def main():
     parser = argparse.ArgumentParser(description='Skill Security Auditor')
     parser.add_argument('skill_dir', help='Path to skill directory to audit')
     parser.add_argument('--strict', action='store_true',
-                        help='Exit non-zero on CRITICAL or HIGH findings')
+                        help='Exit non-zero on CRITICAL findings')
     parser.add_argument('--json', action='store_true', dest='json_output',
                         help='Output results as JSON')
     args = parser.parse_args()

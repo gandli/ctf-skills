@@ -75,12 +75,7 @@ jobs:
             [ -n "$dir" ] && SKILLS+=("$dir")
           done <<< "$SKILL_FILES"
 
-          JSON="["
-          for i in "${!SKILLS[@]}"; do
-            [ $i -gt 0 ] && JSON+=","
-            JSON+="\"${SKILLS[$i]}\""
-          done
-          JSON+="]"
+          JSON=$(printf '%s\n' "${SKILLS[@]}" | python3 -c 'import json, sys; print(json.dumps([line.rstrip("\n") for line in sys.stdin if line.rstrip("\n")]))')
 
           echo "skills=$JSON" >> "$GITHUB_OUTPUT"
           echo "has_skills=true" >> "$GITHUB_OUTPUT"
@@ -114,8 +109,9 @@ jobs:
           echo "## 🔒 Skill Security Audit Results" > "$REPORT_FILE"
           echo "" >> "$REPORT_FILE"
 
-          # Parse JSON array of skill dirs
-          for skill_dir in $(echo "$SKILLS" | python3 -c "import sys,json; [print(s) for s in json.load(sys.stdin)]"); do
+          # Parse JSON array of skill dirs safely, one directory per line
+          while IFS= read -r skill_dir; do
+            [ -z "$skill_dir" ] && continue
             echo "::group::Auditing $skill_dir"
             echo "Scanning: $skill_dir"
 
@@ -204,7 +200,7 @@ jobs:
             fi
 
             echo "::endgroup::"
-          done
+          done < <(echo "$SKILLS" | python3 -c "import sys, json; [print(s) for s in json.load(sys.stdin)]")
 
           # Save report for comment step
           echo "report_file=$REPORT_FILE" >> "$GITHUB_OUTPUT"
