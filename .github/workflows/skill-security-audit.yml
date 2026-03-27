@@ -4,109 +4,60 @@ name: Skill Security Audit
 'on':
   pull_request:
     types: [opened, synchronize, reopened]
-    paths:
-      - 'ctf-web/**'
-      - 'ctf-pwn/**'
-      - 'ctf-crypto/**'
-      - 'ctf-reverse/**'
-      - 'ctf-forensics/**'
-      - 'ctf-osint/**'
-      - 'ctf-malware/**'
-      - 'ctf-misc/**'
-      - 'ctf-writeup/**'
-      - 'solve-challenge/**'
   push:
     branches:
       - main
-    paths:
-      - 'ctf-web/**'
-      - 'ctf-pwn/**'
-      - 'ctf-crypto/**'
-      - 'ctf-reverse/**'
-      - 'ctf-forensics/**'
-      - 'ctf-osint/**'
-      - 'ctf-malware/**'
-      - 'ctf-misc/**'
-      - 'ctf-writeup/**'
-      - 'solve-challenge/**'
 
 concurrency:
   group: security-audit-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  detect-changes:
-    name: Detect changed skills
+  detect-skills:
+    name: Detect all skills
     runs-on: ubuntu-latest
     permissions:
       contents: read
     outputs:
-      skills: ${{ steps.find.outputs.skills }}
-      has_skills: ${{ steps.find.outputs.has_skills }}
+      skills: ${{ steps.list.outputs.skills }}
+      has_skills: ${{ steps.list.outputs.has_skills }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Find changed skill directories
-        id: find
+      - name: Find all skill directories
+        id: list
         run: |
-          # Get list of changed files for either PRs or pushes to main
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD 2>/dev/null || echo "")
-          else
-            BEFORE='${{ github.event.before }}'
-            if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
-              CHANGED=$(git diff-tree --no-commit-id --name-only -r HEAD 2>/dev/null || echo "")
-            else
-              CHANGED=$(git diff --name-only "$BEFORE"...HEAD 2>/dev/null || echo "")
-            fi
-          fi
+          SKILL_FILES=$(find . -name SKILL.md -not -path './.git/*' | sort)
 
-          if [ -z "$CHANGED" ]; then
+          if [ -z "$SKILL_FILES" ]; then
             echo "skills=[]" >> "$GITHUB_OUTPUT"
             echo "has_skills=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          # Extract unique skill root directories (top-level dirs containing SKILL.md)
           SKILLS=()
-          SEEN=()
           while IFS= read -r file; do
-            # Get the top-level directory
-            dir=$(echo "$file" | cut -d'/' -f1)
-            # Skip non-skill paths
-            case "$dir" in
-              .github|.claude|.codex|.gemini|scripts|docs) continue ;;
-            esac
-            # Check if this directory has a SKILL.md (is a skill)
-            if [ -f "$dir/SKILL.md" ] && [[ ! " ${SEEN[*]} " =~ " $dir " ]]; then
-              SKILLS+=("$dir")
-              SEEN+=("$dir")
-            fi
-          done <<< "$CHANGED"
+            dir=${file#./}
+            dir=${dir%/SKILL.md}
+            [ -n "$dir" ] && SKILLS+=("$dir")
+          done <<< "$SKILL_FILES"
 
-          if [ ${#SKILLS[@]} -eq 0 ]; then
-            echo "skills=[]" >> "$GITHUB_OUTPUT"
-            echo "has_skills=false" >> "$GITHUB_OUTPUT"
-          else
-            # Build JSON array
-            JSON="["
-            for i in "${!SKILLS[@]}"; do
-              [ $i -gt 0 ] && JSON+=","
-              JSON+="\"${SKILLS[$i]}\""
-            done
-            JSON+="]"
-            echo "skills=$JSON" >> "$GITHUB_OUTPUT"
-            echo "has_skills=true" >> "$GITHUB_OUTPUT"
-            echo "Changed skills: $JSON"
-          fi
+          JSON="["
+          for i in "${!SKILLS[@]}"; do
+            [ $i -gt 0 ] && JSON+=","
+            JSON+="\"${SKILLS[$i]}\""
+          done
+          JSON+="]"
+
+          echo "skills=$JSON" >> "$GITHUB_OUTPUT"
+          echo "has_skills=true" >> "$GITHUB_OUTPUT"
+          echo "All skills: $JSON"
 
   audit:
     name: Security audit
-    needs: detect-changes
-    if: needs.detect-changes.outputs.has_skills == 'true'
+    needs: detect-skills
+    if: needs.detect-skills.outputs.has_skills == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -120,11 +71,11 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Run security auditor on changed skills
+      - name: Run security auditor on all skills
         id: audit
         run: |
           AUDITOR="scripts/skill_security_auditor.py"
-          SKILLS='${{ needs.detect-changes.outputs.skills }}'
+          SKILLS='${{ needs.detect-skills.outputs.skills }}'
           REPORT_FILE=$(mktemp)
           OVERALL_EXIT=0
 
