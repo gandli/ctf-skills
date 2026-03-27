@@ -21,7 +21,7 @@ pip install z3-solver pwntools Pillow numpy requests dnslib
 
 **Linux (apt):**
 ```bash
-apt install ffmpeg qrencode sagemath
+apt install ffmpeg qrencode
 ```
 
 **macOS (Homebrew):**

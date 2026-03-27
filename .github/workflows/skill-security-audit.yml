@@ -75,12 +75,7 @@ jobs:
             [ -n "$dir" ] && SKILLS+=("$dir")
           done <<< "$SKILL_FILES"
 
-          JSON="["
-          for i in "${!SKILLS[@]}"; do
-            [ $i -gt 0 ] && JSON+=","
-            JSON+="\"${SKILLS[$i]}\""
-          done
-          JSON+="]"
+          JSON=$(printf '%s\n' "${SKILLS[@]}" | python3 -c 'import json, sys; print(json.dumps([line.rstrip("\n") for line in sys.stdin if line.rstrip("\n")]))')
 
           echo "skills=$JSON" >> "$GITHUB_OUTPUT"
           echo "has_skills=true" >> "$GITHUB_OUTPUT"

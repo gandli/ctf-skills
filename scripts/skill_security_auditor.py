@@ -14,8 +14,8 @@ CRITICAL_PATTERNS = [
     (r'curl\s+[^\|]*\|\s*(ba)?sh', "Pipe-to-shell: curl | sh"),
     (r'wget\s+[^\|]*\|\s*(ba)?sh', "Pipe-to-shell: wget | sh"),
     (r'mkfs\.\w+\s+/dev/', "Destructive command: mkfs on device"),
-    (r'dd\s+.*of=/dev/[sh]d', "Destructive command: dd to disk device"),
-    (r':(){ :\|:& };:', "Fork bomb"),
+    (r'dd\s+.*of=/dev/(sd|hd|vd|nvme)', "Destructive command: dd to disk device"),
+    (r':\(\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;\s*:', "Fork bomb"),
 ]
 
 SECRET_PATTERNS = [
@@ -74,19 +74,34 @@ def has_shell_true_subprocess_call(line: str) -> bool:
     return match is not None
 
 
-def scan_file(filepath: Path) -> list:
-    """Scan a single file and return findings."""
-    findings = []
+def read_markdown_file(filepath: Path) -> tuple[str | None, dict | None]:
+    """Read a markdown file with strict UTF-8 handling."""
     try:
-        content = filepath.read_text(encoding='utf-8', errors='replace')
-    except Exception as e:
-        findings.append({
+        return filepath.read_text(encoding='utf-8'), None
+    except UnicodeDecodeError as e:
+        return None, {
+            'severity': 'HIGH',
+            'file': str(filepath),
+            'line': 0,
+            'rule': 'unreadable_file',
+            'message': f'Could not decode file as UTF-8: {e}',
+        }
+    except OSError as e:
+        return None, {
             'severity': 'HIGH',
             'file': str(filepath),
             'line': 0,
             'rule': 'unreadable_file',
             'message': f'Could not read file: {e}',
-        })
+        }
+
+
+def scan_file(filepath: Path) -> list:
+    """Scan a single file and return findings."""
+    findings = []
+    content, read_error = read_markdown_file(filepath)
+    if read_error is not None:
+        findings.append(read_error)
         return findings
 
     lines = content.splitlines()
@@ -180,8 +195,17 @@ def scan_skill(skill_dir: Path) -> dict:
         })
     else:
         try:
-            content = skill_md.read_text(encoding='utf-8', errors='replace')
-        except Exception as e:
+            content = skill_md.read_text(encoding='utf-8')
+        except UnicodeDecodeError as e:
+            findings.append({
+                'severity': 'HIGH',
+                'file': str(skill_md),
+                'line': 0,
+                'rule': 'unreadable_skill_md',
+                'message': f'Could not decode SKILL.md as UTF-8: {e}',
+            })
+            content = None
+        except OSError as e:
             findings.append({
                 'severity': 'HIGH',
                 'file': str(skill_md),
@@ -191,29 +215,17 @@ def scan_skill(skill_dir: Path) -> dict:
             })
             content = None
 
-        if content is None:
-            return {
-                'skill': str(skill_dir),
-                'verdict': 'WARN',
-                'summary': {
-                    'critical': 0,
-                    'high': 1,
-                    'info': 0,
-                    'total': 1,
-                },
-                'findings': findings,
-            }
-
-        fm = parse_frontmatter(content)
-        for key, message in FRONTMATTER_CHECKS.items():
-            if key not in fm:
-                findings.append({
-                    'severity': 'INFO',
-                    'file': str(skill_md),
-                    'line': 0,
-                    'rule': f'missing_{key}',
-                    'message': message,
-                })
+        if content is not None:
+            fm = parse_frontmatter(content)
+            for key, message in FRONTMATTER_CHECKS.items():
+                if key not in fm:
+                    findings.append({
+                        'severity': 'INFO',
+                        'file': str(skill_md),
+                        'line': 0,
+                        'rule': f'missing_{key}',
+                        'message': message,
+                    })
 
     # Scan all markdown files
     md_files = sorted(skill_dir.rglob('*.md'))
