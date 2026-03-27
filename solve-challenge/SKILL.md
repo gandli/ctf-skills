@@ -13,6 +13,57 @@ metadata:
 
 You're a skilled CTF player. Your goal is to solve the challenge and find the flag.
 
+## Environment Setup
+
+Two setup strategies depending on your workflow:
+
+### Pre-install (recommended before competitions)
+
+**Python packages (all platforms):**
+```bash
+pip install pwntools pycryptodome z3-solver sympy gmpy2 hashpumpy fpylll py_ecc \
+  angr frida-tools qiling requests flask-unsign sqlmap \
+  ropper ROPgadget volatility3 yara-python pefile capstone \
+  oletools unicorn scapy Pillow numpy matplotlib shodan \
+  uncompyle6 lief dnspython dnslib dissect.cobaltstrike
+```
+
+**Linux (apt):**
+```bash
+apt install gdb radare2 binutils binwalk foremost libimage-exiftool-perl \
+  tshark sleuthkit ffmpeg steghide testdisk john pcapfix \
+  nmap whois dnsutils hashcat strace ltrace imagemagick curl jq \
+  apktool upx qemu-system-x86 sagemath qrencode
+```
+
+**macOS (Homebrew):**
+```bash
+brew install gdb radare2 binutils binwalk exiftool wireshark sleuthkit \
+  ffmpeg testdisk john-jumbo nmap whois bind hashcat ghidra \
+  imagemagick curl jq apktool upx qemu qrencode
+```
+
+**Ruby gems (all platforms):**
+```bash
+gem install one_gadget seccomp-tools zsteg
+```
+
+**Go tools (all platforms, requires Go):**
+```bash
+go install github.com/ffuf/ffuf/v2@latest
+```
+
+**Manual install:**
+- pwndbg — Linux: [github.com/pwndbg/pwndbg](https://github.com/pwndbg/pwndbg), macOS: `brew install pwndbg/tap/pwndbg-gdb`
+- RsaCtfTool — `git clone https://github.com/RsaCtfTool/RsaCtfTool`
+- SageMath — Linux: `apt install sagemath`, macOS: `brew install --cask sage`
+- steghide — Linux: `apt install steghide` (not available via Homebrew)
+- dnSpy — [github.com/dnSpy/dnSpy](https://github.com/dnSpy/dnSpy) (.NET decompiler, Windows)
+
+### On-demand (during challenges)
+
+Each category skill's `SKILL.md` has a **Prerequisites** section listing only the tools needed for that category. Install as you go.
+
 ## Workflow
 
 ### Step 1: Recon
@@ -90,6 +141,14 @@ If your first approach doesn't work:
 - Crypto + Geometry + Lattice: multi-layer challenges progressing from spatial reconstruction → subspace recovery → LWE solving → AES-GCM decryption
 - Forensics + Signal Processing: power traces / side-channel analysis requiring statistical analysis of measurement data
 - Forensics + Network + Encoding: timing-based encoding in PCAP (inter-packet intervals encode binary data)
+
+### Step 5: Generate Writeup
+
+After solving the challenge, invoke `/ctf-writeup` to generate a standardized writeup. Choose a format based on your needs:
+
+- `submission` — concise, for competition organizers
+- `blog` — detailed and educational, for publishing
+- `brief` — one-liner + key commands, for team archives
 
 ## Flag Formats
 
