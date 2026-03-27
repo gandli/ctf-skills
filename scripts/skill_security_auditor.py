@@ -39,6 +39,14 @@ INFO_PATTERNS = [
     (r'TODO|FIXME|HACK|XXX', "Code annotation found"),
 ]
 
+PLACEHOLDER_HOST_MARKERS = (
+    'exfil.com',
+    'attacker.com',
+    'example.com',
+    'example.org',
+    'example.invalid',
+)
+
 FRONTMATTER_CHECKS = {
     'license': 'Missing license field in frontmatter',
     'allowed-tools': 'Missing allowed-tools field in frontmatter',
@@ -94,6 +102,14 @@ def read_markdown_file(filepath: Path) -> tuple[str | None, dict | None]:
             'rule': 'unreadable_file',
             'message': f'Could not read file: {e}',
         }
+
+
+def is_placeholder_xss_example(line: str) -> bool:
+    """Ignore educational XSS exfil examples that only use placeholder hosts."""
+    lowered = line.lower()
+    touches_sensitive_dom = 'document.cookie' in lowered or 'document.location' in lowered
+    uses_placeholder_host = any(marker in lowered for marker in PLACEHOLDER_HOST_MARKERS)
+    return touches_sensitive_dom and uses_placeholder_host
 
 
 def scan_file(filepath: Path) -> list:
@@ -157,6 +173,8 @@ def scan_file(filepath: Path) -> list:
 
             for pattern, message in HIGH_PATTERNS:
                 if re.search(pattern, line):
+                    if message == "XSS payload accessing sensitive DOM" and is_placeholder_xss_example(line):
+                        continue
                     findings.append({
                         'severity': 'HIGH',
                         'file': str(filepath),
