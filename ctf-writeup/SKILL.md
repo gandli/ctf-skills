@@ -1,17 +1,24 @@
 ---
 name: ctf-writeup
-description: Generates standardized CTF challenge writeups with metadata, solution steps, code, and lessons learned. Use after solving a challenge to create a writeup suitable for blog posts, team archives, or competition submission to organizers.
+description: Generates a single standardized submission-style CTF writeup for competition handoff and organizer review.
 license: MIT
 compatibility: Requires filesystem-based agent (Claude Code or similar) with bash and Python 3.
 allowed-tools: Bash Read Write Edit Glob Grep Task
 metadata:
   user-invocable: "true"
-  argument-hint: "[challenge-name] [--format blog|submission|brief]"
+  argument-hint: "[challenge-name]"
 ---
 
 # CTF Write-up Generator
 
-Generate a standardized, high-quality writeup for a solved CTF challenge.
+Generate a standardized submission-style CTF writeup for a solved challenge.
+
+Default behavior:
+
+- During an active competition, optimize for speed, clarity, and reproducibility
+- Keep writeups short enough that a teammate or organizer can validate the solve quickly
+- Always produce a `submission`-style writeup
+- Prefer one complete solve script from challenge data to final flag
 
 ## Workflow
 
@@ -30,25 +37,15 @@ find . -name '*.py' -o -name '*.sh' -o -name 'exploit*' -o -name 'solve*' | head
 grep -rniE '(flag|ctf|eno|htb|pico)\{' . 2>/dev/null
 ```
 
-### Step 2: Choose Format
+### Step 2: Generate Write-up
 
-| Format | Use Case | Audience |
-|--------|----------|----------|
-| `submission` | Submit to competition organizers for review | Judges — concise, steps + payload + flag |
-| `blog` | Publish on blog or CTFtime | Community — detailed, educational, with background |
-| `brief` | Team internal archive | Teammates — one-liner + key commands |
-
-Default to `blog` if not specified.
-
-### Step 3: Generate Write-up
-
-Write the writeup file as `writeup.md` (or `writeup-<challenge-name>.md`) using the template below matching the chosen format.
+Write the writeup file as `writeup.md` (or `writeup-<challenge-name>.md`) using the submission template below.
 
 ---
 
 ## Templates
 
-### Format: `submission`
+### Submission Format
 
 ```markdown
 ---
@@ -66,114 +63,43 @@ author: "<your name or team>"
 
 ## Summary
 
-<1-2 sentences: what the challenge was and the core vulnerability/technique.>
+<1-2 sentences: what the challenge was and the core technique. Keep it direct.>
 
 ## Solution
 
 ### Step 1: <Action>
 
-<What you did and why.>
-
-\`\`\`bash
-<command or code>
-\`\`\`
-
-### Step 2: <Action>
-
-<Continue for each step.>
-
-## Flag
-
-\`\`\`
-flag{example_flag_here}
-\`\`\`
-```
-
-### Format: `blog`
-
-```markdown
----
-title: "<Challenge Name> — <CTF Event> Write-up"
-ctf: "<CTF Event Name>"
-date: YYYY-MM-DD
-category: web|pwn|crypto|reverse|forensics|osint|malware|misc
-difficulty: easy|medium|hard
-points: <number>
-flag_format: "flag{...}"
-author: "<your name or team>"
-tags: [ctf, <category>, <specific-technique>]
----
-
-# <Challenge Name>
-
-> **CTF:** <Event> | **Category:** <cat> | **Difficulty:** <diff> | **Points:** <pts>
-
-## Challenge Description
-
-<Original challenge description, quoted or paraphrased.>
-
-## Reconnaissance
-
-<What you saw first. Initial analysis, file types, service behavior, first impressions.>
-
-\`\`\`bash
-file *
-checksec --file=binary
-curl -v http://target/
-\`\`\`
-
-## Analysis
-
-<Deep dive into the vulnerability or puzzle. Explain **why** the technique works, not just **what** you did. Include relevant background knowledge for readers who may not know the technique.>
-
-## Exploitation
-
-### Step 1: <Action>
-
-<Detailed explanation with code.>
+<Explain the key observation in 3-8 short lines. Keep it direct.>
 
 \`\`\`python
-# exploit.py
-from pwn import *
-# ... exploit code with comments explaining each step
+<one complete solving script from provided challenge data to printing the final flag>
 \`\`\`
 
-### Step 2: <Action>
+### Step 2: <Action> (optional)
 
-<Continue for each step.>
+<Only add this when a second short step genuinely helps readability, such as separating the core observation from final verification.>
+
+### Step 3: <Action> (optional)
+
+<Use only if the challenge really needs it. Keep the total number of steps small.>
 
 ## Flag
 
 \`\`\`
 flag{example_flag_here}
 \`\`\`
-
-## Lessons Learned
-
-- <What was new or interesting about this challenge?>
-- <What technique will you remember for next time?>
-- <What tools or approaches did you discover?>
-
-## References
-
-- [Tool/technique documentation](https://example.com)
-- [Related writeup or resource](https://example.com)
 ```
 
-### Format: `brief`
+Guidance:
 
-```markdown
-# <Challenge Name> (<CTF>, <category>, <points>pts)
-
-**TL;DR:** <One sentence describing the vulnerability and exploit.>
-
-**Key commands:**
-\`\`\`bash
-<the 2-5 most important commands/lines that solve it>
-\`\`\`
-
-**Flag:** `flag{...}`
-```
+- Prefer 1-3 short steps total
+- Keep code to the smallest complete solving script
+- Do not split "recover secret", "derive key", and "decrypt flag" into separate partial snippets
+- The script should start from the challenge data and end by printing the flag
+- Avoid long background sections
+- Avoid dead ends unless they explain a key pivot
+- Avoid multiple alternative solves; pick one clean path
+- Redact the flag only if the user explicitly asks for redaction
 
 ---
 
@@ -182,12 +108,11 @@ flag{example_flag_here}
 Before finalizing the writeup, verify:
 
 - [ ] **Metadata complete** — title, CTF, date, category, difficulty, points, author all filled
-- [ ] **Flag redacted if needed** — some competitions require flag redaction during the event
+- [ ] **Flag handling matches request** — keep the real flag unless the user asked for redaction
 - [ ] **Reproducible steps** — a reader can follow your writeup and reproduce the solution
 - [ ] **Code is runnable** — exploit scripts include all imports, correct variable names, and comments
 - [ ] **No sensitive data** — no real credentials, API keys, or private infrastructure details
-- [ ] **Screenshots referenced** — if you took screenshots, reference them with `![description](path)`
-- [ ] **Dead ends documented** (blog format) — mention what you tried that didn't work and why
+- [ ] **Length stays concise** — the writeup is short enough for fast review
 - [ ] **Tools and versions noted** — mention specific tool versions if behavior depends on them
 - [ ] **Proper attribution** — credit teammates, referenced writeups, or tools that were essential
 - [ ] **Grammar and formatting** — consistent heading levels, code blocks have language tags
@@ -195,15 +120,16 @@ Before finalizing the writeup, verify:
 ## Quality Guidelines
 
 **DO:**
-- Explain the "why" behind each step, not just the "what"
-- Include the full exploit script, not just fragments
+- Explain just enough for fast verification
+- Include one complete solving path, not multiple alternative routes
+- Include one complete script that goes all the way to the final flag
 - Show actual output (truncated if very long) to prove the approach worked
-- Use diagrams or ASCII art for complex attack flows
 - Tag code blocks with language (`python`, `bash`, `sql`, etc.)
+- Keep the main path front-loaded so a reader can validate it quickly
 
 **DON'T:**
 - Copy-paste raw terminal dumps without explanation
-- Skip the reconnaissance phase — show how you identified the vulnerability
+- Paste several partial snippets that force the reader to reconstruct the final solve
 - Leave placeholder text in the final writeup
 - Include irrelevant tangents that don't contribute to the solution
 - Assume the reader knows the specific challenge setup
